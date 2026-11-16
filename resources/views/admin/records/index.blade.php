@@ -25,11 +25,11 @@
                 <table class="admin-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th>Record</th>
                             @foreach ($module['fields'] as $field)
                                 <th>{{ $field['label'] }}</th>
                             @endforeach
-                            @unless (in_array($moduleKey, ['brands', 'units'], true))
+                            @unless (in_array($moduleKey, ['brands', 'units', 'expense-categories'], true))
                                 <th>Created</th>
                             @endunless
                             <th>Actions</th>
@@ -38,11 +38,11 @@
                     <tbody>
                         @foreach ($records as $record)
                             <tr>
-                                <td class="record-title">{{ $record->title }}</td>
+                                <td class="record-title">{{ $record->label }}</td>
                                 @foreach ($module['fields'] as $field)
                                     <td>{{ \Illuminate\Support\Str::limit((string) ($record->data[$field['name']] ?? '—'), 70) }}</td>
                                 @endforeach
-                                @unless (in_array($moduleKey, ['brands', 'units'], true))
+                                @unless (in_array($moduleKey, ['brands', 'units', 'expense-categories'], true))
                                     <td>{{ $record->created_at->format('M j, Y') }}</td>
                                 @endunless
                                 <td>

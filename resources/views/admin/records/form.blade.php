@@ -3,6 +3,10 @@
 @section('title', $record ? 'Edit '.$module['name'] : 'Add '.$module['name'])
 
 @section('content')
+    @php
+        $hasRequiredFields = collect($module['fields'])->contains(fn (array $field): bool => $field['required'] ?? false);
+    @endphp
+
     <section class="page-heading">
         <div>
             <!-- <span class="form-kicker">{{ $record ? 'UPDATE RECORD' : 'NEW RECORD' }}</span> -->
@@ -23,14 +27,11 @@
                 <h2>{{ $module['name'] }} details</h2>
                 <p>Enter the information below to {{ $record ? 'update' : 'add' }} this {{ strtolower($module['name']) }} record.</p>
             </div>
-            <span class="form-required-note"><span aria-hidden="true">*</span> Required</span>
+            @if ($hasRequiredFields)
+                <span class="form-required-note"><span aria-hidden="true">*</span> Required</span>
+            @endif
         </div>
         <div class="admin-form-grid">
-            <div class="admin-field {{ in_array($moduleKey, ['brands', 'units'], true) ? '' : 'admin-field-full' }}">
-                <label for="title">Name <span aria-hidden="true">*</span></label>
-                <input id="title" name="title" type="text" maxlength="255" required value="{{ old('title', $record?->title) }}" autocomplete="off" aria-invalid="{{ $errors->has('title') ? 'true' : 'false' }}">
-                @error('title')<span class="admin-field-error">{{ $message }}</span>@enderror
-            </div>
             @foreach ($module['fields'] as $field)
                 <div class="admin-field {{ $field['type'] === 'textarea' ? 'admin-field-full' : '' }}">
                     <label for="data-{{ $field['name'] }}">{{ $field['label'] }} @if ($field['required'] ?? false)<span aria-hidden="true">*</span>@endif</label>

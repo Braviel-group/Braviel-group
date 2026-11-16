@@ -38,6 +38,7 @@ return [
     ],
     'Expenses' => [
         'expenses' => ['View expense', 'Add expense', 'Edit expense', 'Delete expense'],
+        'expense_categories' => ['View expense category', 'Add expense category', 'Edit expense category', 'Delete expense category'],
     ],
     'Payment Management' => [
         'payments' => ['View payment', 'Add payment', 'Edit payment', 'Delete payment'],

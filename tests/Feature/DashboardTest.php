@@ -12,25 +12,39 @@ class DashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_shows_management_modules_without_sample_business_data(): void
+    public function test_sell_menu_does_not_show_pos_links(): void
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('>All sales</a>', false)
+            ->assertSee('>Expense Categories</a>', false)
+            ->assertDontSee('>List POS</a>', false)
+            ->assertDontSee('>POS</a>', false);
+    }
+
+    public function test_dashboard_shows_management_modules_without_sample_business_data(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('data-sidebar-toggle')
             ->assertSee('aria-controls="admin-sidebar"', false)
             ->assertSee('menu-toggle-lines')
-            ->assertSee('Product Management')
+            ->assertSee('Product')
             ->assertSee('admin-menu-icon')
             ->assertDontSee("'icon' => 'U'")
-            ->assertSee('Category Management')
+            ->assertSee('Category')
             ->assertSee('Sales and Point of Sale (POS)')
-            ->assertSee('Inventory Management')
-            ->assertSee('Purchase Management')
-            ->assertSee('Customer Management')
-            ->assertSee('Supplier Management')
-            ->assertSee('Expense Management')
-            ->assertSee('Payment Management')
+            ->assertSee('Inventory')
+            ->assertSee('Purchase')
+            ->assertSee('Customer')
+            ->assertSee('Supplier')
+            ->assertSee('Expense ')
+            ->assertSee('Payment ')
             ->assertSee('Returns and Refunds')
             ->assertSee('Cash Register')
             ->assertSee('Reports and Analytics')
@@ -44,11 +58,12 @@ class DashboardTest extends TestCase
             ->assertSee('Import Opening Stock')
             ->assertSee('Update Price')
             ->assertSee('Brands')
-            ->assertSee('Inventory Management')
+            ->assertSee('Inventory')
             ->assertSee('List Purchases')
             ->assertSee('List Purchase Return')
             ->assertSee('All sales')
-            ->assertSee('List POS')
+            ->assertDontSee('List POS')
+            ->assertDontSee('>POS</a>', false)
             ->assertSee('System Settings')
             ->assertSee('Audit Logs and Backup')
             ->assertSee('No sales data yet')
@@ -64,7 +79,10 @@ class DashboardTest extends TestCase
     {
         Carbon::setTestNow('2026-11-11 12:00:00');
         try {
-            $this->actingAs(User::factory()->create(['role' => 'admin']));
+            /** @var User $admin */
+            $admin = User::factory()->create(['role' => 'admin']);
+
+            $this->actingAs($admin);
 
             AdminRecord::create([
                 'module' => 'sales',

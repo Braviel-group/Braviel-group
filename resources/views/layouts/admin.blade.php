@@ -78,8 +78,6 @@
                 'items' => [
                     ['name' => 'All sales', 'route' => route('admin.modules.index', 'sales')],
                     ['name' => 'Add Sale', 'route' => route('admin.modules.create', 'sales')],
-                    ['name' => 'List POS', 'route' => route('admin.modules.index', 'sales')],
-                    ['name' => 'POS', 'route' => route('admin.modules.create', 'sales')],
                 ],
             ],
         
@@ -96,9 +94,11 @@
                 'name' => 'Expenses',
                 'icon' => 'receipt',
                 'activePath' => 'admin/modules/expenses',
+                'activePaths' => ['admin/modules/expenses', 'admin/modules/expense-categories'],
                 'items' => [
                     ['name' => 'List Expenses', 'route' => route('admin.modules.index', 'expenses')],
                     ['name' => 'Add Expense', 'route' => route('admin.modules.create', 'expenses')],
+                    ['name' => 'Expense Categories', 'route' => route('admin.modules.index', 'expense-categories')],
                 ],
             ],
             [

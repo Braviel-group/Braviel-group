@@ -1,8 +1,18 @@
 <?php
 
+$paymentMethods = [
+    'Cash' => 'Cash',
+    'Mobile Money' => 'Mobile Money',
+    'Bank Transfer' => 'Bank Transfer',
+    'Credit Card' => 'Credit Card',
+    'Debit Card' => 'Debit Card',
+    'Cheque' => 'Cheque',
+    'Other' => 'Other',
+];
+
 return [
     'products' => [
-        'name' => 'Product Management',
+        'name' => 'Product',
         'description' => 'Manage your product catalog',
         'fields' => [
             ['name' => 'sku', 'label' => 'SKU', 'type' => 'text'],
@@ -15,7 +25,7 @@ return [
         ],
     ],
     'categories' => [
-        'name' => 'Category Management',
+        'name' => 'Category',
         'description' => 'Organize products into categories',
         'fields' => [
             ['name' => 'description', 'label' => 'Description', 'type' => 'textarea'],
@@ -39,20 +49,29 @@ return [
         'name' => 'Sales and Point of Sale (POS)',
         'description' => 'Record and manage sales',
         'fields' => [
-            ['name' => 'customer', 'label' => 'Customer', 'type' => 'text'],
+            ['name' => 'customer', 'label' => 'Customer', 'type' => 'select', 'source' => 'customers'],
             ['name' => 'sale_date', 'label' => 'Sale date', 'type' => 'date'],
             ['name' => 'total_amount', 'label' => 'Total amount', 'type' => 'number'],
-            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'text'],
-            ['name' => 'status', 'label' => 'Status', 'type' => 'text'],
+            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'select', 'options' => $paymentMethods],
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => [
+                'Pending' => 'Pending',
+                'Completed' => 'Completed',
+                'Cancelled' => 'Cancelled',
+            ]],
         ],
     ],
     'inventory' => [
-        'name' => 'Inventory Management',
+        'name' => 'Inventory',
         'description' => 'Track stock and adjustments',
         'fields' => [
-            ['name' => 'product', 'label' => 'Product', 'type' => 'text'],
+            ['name' => 'product', 'label' => 'Product', 'type' => 'select', 'source' => 'products'],
             ['name' => 'quantity', 'label' => 'Quantity', 'type' => 'number'],
-            ['name' => 'movement_type', 'label' => 'Movement type', 'type' => 'text'],
+            ['name' => 'movement_type', 'label' => 'Movement type', 'type' => 'select', 'options' => [
+                'Opening stock' => 'Opening stock',
+                'Stock in' => 'Stock in',
+                'Stock out' => 'Stock out',
+                'Adjustment' => 'Adjustment',
+            ]],
             ['name' => 'movement_date', 'label' => 'Movement date', 'type' => 'date'],
             ['name' => 'notes', 'label' => 'Notes', 'type' => 'textarea'],
         ],
@@ -61,7 +80,7 @@ return [
         'name' => 'Stock Transfers',
         'description' => 'Record stock moved between locations',
         'fields' => [
-            ['name' => 'product', 'label' => 'Product', 'type' => 'text'],
+            ['name' => 'product', 'label' => 'Product', 'type' => 'select', 'source' => 'products'],
             ['name' => 'quantity', 'label' => 'Quantity', 'type' => 'number'],
             ['name' => 'source_location', 'label' => 'Source location', 'type' => 'text'],
             ['name' => 'destination_location', 'label' => 'Destination location', 'type' => 'text'],
@@ -72,7 +91,7 @@ return [
         'name' => 'Stock Adjustments',
         'description' => 'Record stock corrections',
         'fields' => [
-            ['name' => 'product', 'label' => 'Product', 'type' => 'text'],
+            ['name' => 'product', 'label' => 'Product', 'type' => 'select', 'source' => 'products'],
             ['name' => 'quantity_change', 'label' => 'Quantity change', 'type' => 'number'],
             ['name' => 'reason', 'label' => 'Reason', 'type' => 'textarea'],
             ['name' => 'adjustment_date', 'label' => 'Adjustment date', 'type' => 'date'],
@@ -82,17 +101,21 @@ return [
         'name' => 'Purchases',
         'description' => 'Manage purchase orders',
         'fields' => [
-            ['name' => 'supplier', 'label' => 'Supplier', 'type' => 'text'],
+            ['name' => 'supplier', 'label' => 'Supplier', 'type' => 'select', 'source' => 'suppliers'],
             ['name' => 'purchase_date', 'label' => 'Purchase date', 'type' => 'date'],
             ['name' => 'total_amount', 'label' => 'Total amount', 'type' => 'number'],
-            ['name' => 'status', 'label' => 'Status', 'type' => 'text'],
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => [
+                'Pending' => 'Pending',
+                'Completed' => 'Completed',
+                'Cancelled' => 'Cancelled',
+            ]],
         ],
     ],
     'purchase-returns' => [
         'name' => 'Purchase Returns',
         'description' => 'Manage returned purchases',
         'fields' => [
-            ['name' => 'supplier', 'label' => 'Supplier', 'type' => 'text'],
+            ['name' => 'supplier', 'label' => 'Supplier', 'type' => 'select', 'source' => 'suppliers'],
             ['name' => 'return_date', 'label' => 'Return date', 'type' => 'date'],
             ['name' => 'total_amount', 'label' => 'Total amount', 'type' => 'number'],
             ['name' => 'reason', 'label' => 'Reason', 'type' => 'textarea'],
@@ -118,25 +141,36 @@ return [
             ['name' => 'address', 'label' => 'Address', 'type' => 'textarea'],
         ],
     ],
+    'expense-categories' => [
+        'name' => 'Expense Categories',
+        'description' => 'Organize expenses by category',
+        'fields' => [
+            ['name' => 'category_name', 'label' => 'Category name', 'type' => 'text', 'required' => true],
+        ],
+    ],
     'expenses' => [
-        'name' => 'Expense Management',
+        'name' => 'Expense',
         'description' => 'Record business expenses',
         'fields' => [
-            ['name' => 'category', 'label' => 'Category', 'type' => 'text'],
+            ['name' => 'category', 'label' => 'Category', 'type' => 'select', 'source' => 'expense-categories'],
             ['name' => 'amount', 'label' => 'Amount', 'type' => 'number'],
             ['name' => 'expense_date', 'label' => 'Expense date', 'type' => 'date'],
-            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'text'],
+            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'select', 'options' => $paymentMethods],
         ],
     ],
     'payments' => [
-        'name' => 'Payment Management',
+        'name' => 'Payment',
         'description' => 'Track incoming and outgoing payments',
         'fields' => [
             ['name' => 'reference', 'label' => 'Reference', 'type' => 'text'],
             ['name' => 'amount', 'label' => 'Amount', 'type' => 'number'],
             ['name' => 'payment_date', 'label' => 'Payment date', 'type' => 'date'],
-            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'text'],
-            ['name' => 'status', 'label' => 'Status', 'type' => 'text'],
+            ['name' => 'payment_method', 'label' => 'Payment method', 'type' => 'select', 'options' => $paymentMethods],
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => [
+                'Pending' => 'Pending',
+                'Completed' => 'Completed',
+                'Cancelled' => 'Cancelled',
+            ]],
         ],
     ],
     'returns' => [
@@ -157,7 +191,11 @@ return [
             ['name' => 'closing_balance', 'label' => 'Closing balance', 'type' => 'number'],
             ['name' => 'opened_at', 'label' => 'Opened at', 'type' => 'datetime-local'],
             ['name' => 'closed_at', 'label' => 'Closed at', 'type' => 'datetime-local'],
-            ['name' => 'status', 'label' => 'Status', 'type' => 'text'],
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'options' => [
+                'Pending' => 'Pending',
+                'Completed' => 'Completed',
+                'Cancelled' => 'Cancelled',
+            ]],
         ],
     ],
     'settings' => [

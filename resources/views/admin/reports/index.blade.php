@@ -28,7 +28,7 @@
                     <thead><tr><th>Record</th><th>Module</th><th>Added</th></tr></thead>
                     <tbody>
                         @foreach ($recentRecords as $record)
-                            <tr><td class="record-title">{{ $record->title }}</td><td>{{ $modules[$record->module]['name'] ?? $record->module }}</td><td>{{ $record->created_at->format('M j, Y') }}</td></tr>
+                            <tr><td class="record-title">{{ $record->label }}</td><td>{{ $modules[$record->module]['name'] ?? $record->module }}</td><td>{{ $record->created_at->format('M j, Y') }}</td></tr>
                         @endforeach
                     </tbody>
                 </table>

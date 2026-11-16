@@ -60,7 +60,7 @@ class AdminManagementTest extends TestCase
         $this->actingAs($staff);
 
         $this->get(route('dashboard'))->assertOk()->assertSee('Dashboard');
-        $this->get(route('admin.modules.index', 'products'))->assertOk()->assertSee('Product Management');
+        $this->get(route('admin.modules.index', 'products'))->assertOk()->assertSee('Product');
     }
 
     public function test_administrator_can_manage_users_without_removing_the_last_administrator(): void
@@ -183,6 +183,14 @@ class AdminManagementTest extends TestCase
             ->assertSee('Download template file')
             ->assertSee(route('admin.modules.products.import-template'), false);
 
+        $this->get(route('admin.modules.import.form', 'inventory'))
+            ->assertOk()
+            ->assertSee('Import Opening Stock')
+            ->assertSee('File To Import:')
+            ->assertSee('Submit')
+            ->assertSee('Download template file')
+            ->assertSee(route('admin.modules.inventory.import-template'), false);
+
         $this->post(route('admin.modules.import', 'products'), [
             'file' => UploadedFile::fake()->createWithContent(
                 'products.csv',
@@ -210,13 +218,21 @@ class AdminManagementTest extends TestCase
 
     public function test_product_import_template_download_contains_product_headers_only(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        /** @var User $admin */
+        $admin = User::factory()->createOne(['role' => 'admin']);
+        $this->actingAs($admin);
 
         $this->get(route('admin.modules.products.import-template'))
             ->assertOk()
             ->assertHeader('content-type', 'text/csv; charset=UTF-8')
             ->assertHeader('content-disposition', 'attachment; filename="product-import-template.csv"')
             ->assertSee('title,sku,brand,category,unit,purchase_price,sale_price,stock_quantity');
+
+        $this->get(route('admin.modules.inventory.import-template'))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8')
+            ->assertHeader('content-disposition', 'attachment; filename="inventory-import-template.csv"')
+            ->assertSee('title,product,quantity,movement_type,movement_date,notes');
     }
 
     public function test_contacts_csv_import_creates_customer_and_supplier_records(): void
@@ -228,8 +244,10 @@ class AdminManagementTest extends TestCase
         $this->get(route('admin.modules.import.form', 'contacts'))
             ->assertOk()
             ->assertSee('Import Contacts')
-            ->assertSee('title,type,contact_name,email,phone,address')
-            ->assertSee('customer or supplier')
+            ->assertSee('File To Import:')
+            ->assertSee('CSV or Excel (.xlsx), up to 10 MB. Use the template file headers.')
+            ->assertSee('Download template file')
+            ->assertSee(route('admin.modules.contacts.import-template'), false)
             ->assertSee('href="'.route('admin.modules.index', 'customers').'"', false);
 
         $this->post(route('admin.modules.import', 'contacts'), [
@@ -251,6 +269,19 @@ class AdminManagementTest extends TestCase
         $this->assertDatabaseCount('audit_logs', 2);
     }
 
+    public function test_contacts_import_template_download_contains_contact_headers(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->createOne(['role' => 'admin']);
+        $this->actingAs($admin);
+
+        $this->get(route('admin.modules.contacts.import-template'))
+            ->assertOk()
+            ->assertHeader('content-type', 'text/csv; charset=UTF-8')
+            ->assertHeader('content-disposition', 'attachment; filename="contacts-import-template.csv"')
+            ->assertSee('title,type,contact_name,email,phone,address');
+    }
+
     public function test_excel_workbooks_import_contacts_and_products(): void
     {
         /** @var User $admin */
@@ -259,7 +290,7 @@ class AdminManagementTest extends TestCase
 
         $this->get(route('admin.modules.import.form', 'contacts'))
             ->assertOk()
-            ->assertSee('CSV or Excel file')
+            ->assertSee('File To Import:')
             ->assertSee('.xlsx');
 
         $this->post(route('admin.modules.import', 'contacts'), [
@@ -290,7 +321,9 @@ class AdminManagementTest extends TestCase
 
     public function test_product_form_uses_existing_brands_categories_and_units_as_select_options(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
         $this->createProductOption('brands', 'Acme Brand');
         $this->createProductOption('categories', 'Home Goods');
         $this->createProductOption('units', 'Carton', ['abbreviation' => 'ctn']);
@@ -322,35 +355,35 @@ class AdminManagementTest extends TestCase
 
     public function test_brand_and_unit_forms_allow_short_name_to_be_optional(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
 
         foreach (['brands' => 'short_name', 'units' => 'abbreviation'] as $module => $shortNameField) {
             $this->get(route('admin.modules.create', $module))
                 ->assertOk()
-                ->assertSee('Name <span aria-hidden="true">*</span>', false)
+                ->assertDontSee('for="title"', false)
                 ->assertSee('Short name')
                 ->assertDontSee('Short name <span aria-hidden="true">*</span>', false)
-                ->assertSee('name="data['.$shortNameField.']"', false)
-                ->assertSee('required', false);
+                ->assertSee('name="data['.$shortNameField.']"', false);
 
             $this->post(route('admin.modules.store', $module), [
-                'title' => 'Entered '.$module,
             ])->assertRedirect(route('admin.modules.index', $module));
 
             $this->assertDatabaseHas('admin_records', [
                 'module' => $module,
-                'title' => 'Entered '.$module,
+                'title' => null,
             ]);
-            $record = AdminRecord::where('module', $module)->where('title', 'Entered '.$module)->firstOrFail();
+            $record = AdminRecord::where('module', $module)->whereNull('title')->firstOrFail();
             $this->assertSame([], $record->data);
 
             $this->post(route('admin.modules.store', $module), [
-                'title' => 'Entered '.$module.' with short name',
                 'data' => [$shortNameField => 'Short'],
             ])->assertRedirect(route('admin.modules.index', $module));
 
             $recordWithShortName = AdminRecord::where('module', $module)
-                ->where('title', 'Entered '.$module.' with short name')
+                ->whereNull('title')
+                ->latest('id')
                 ->firstOrFail();
             $this->assertSame([$shortNameField => 'Short'], $recordWithShortName->data);
 
@@ -361,15 +394,105 @@ class AdminManagementTest extends TestCase
         }
     }
 
-    public function test_brand_and_unit_name_remain_required(): void
+    public function test_sales_purchases_and_stock_adjustments_select_saved_records_and_statuses(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
 
-        foreach (['brands', 'units'] as $module) {
-            $this->from(route('admin.modules.create', $module))
-                ->post(route('admin.modules.store', $module), [])
-                ->assertRedirect(route('admin.modules.create', $module))
-                ->assertSessionHasErrors('title');
+        AdminRecord::create(['module' => 'customers', 'title' => null, 'data' => ['contact_name' => 'Maya Customer']]);
+        AdminRecord::create(['module' => 'suppliers', 'title' => null, 'data' => ['contact_name' => 'Noah Supplier']]);
+        AdminRecord::create(['module' => 'products', 'title' => null, 'data' => ['sku' => 'SKU-500']]);
+
+        $this->get(route('admin.modules.create', 'sales'))
+            ->assertOk()
+            ->assertDontSee('for="title"', false)
+            ->assertSee('name="data[customer]"', false)
+            ->assertSee('value="Maya Customer"', false)
+            ->assertSee('value="Pending"', false)
+            ->assertSee('value="Completed"', false)
+            ->assertSee('value="Cancelled"', false);
+        $this->post(route('admin.modules.store', 'sales'), [
+            'data' => ['customer' => 'Maya Customer', 'status' => 'Pending'],
+        ])->assertRedirect(route('admin.modules.index', 'sales'));
+
+        $this->get(route('admin.modules.create', 'purchases'))
+            ->assertOk()
+            ->assertDontSee('for="title"', false)
+            ->assertSee('name="data[supplier]"', false)
+            ->assertSee('value="Noah Supplier"', false)
+            ->assertSee('value="Pending"', false);
+        $this->post(route('admin.modules.store', 'purchases'), [
+            'data' => ['supplier' => 'Noah Supplier', 'status' => 'Completed'],
+        ])->assertRedirect(route('admin.modules.index', 'purchases'));
+
+        $this->get(route('admin.modules.create', 'stock-adjustments'))
+            ->assertOk()
+            ->assertDontSee('for="title"', false)
+            ->assertSee('name="data[product]"', false)
+            ->assertSee('value="SKU-500"', false);
+        $this->post(route('admin.modules.store', 'stock-adjustments'), [
+            'data' => ['product' => 'SKU-500', 'quantity_change' => '-2'],
+        ])->assertRedirect(route('admin.modules.index', 'stock-adjustments'));
+
+        $this->assertDatabaseHas('admin_records', [
+            'module' => 'sales',
+            'title' => null,
+        ]);
+        $this->assertDatabaseHas('admin_records', [
+            'module' => 'purchases',
+            'title' => null,
+        ]);
+        $this->assertDatabaseHas('admin_records', [
+            'module' => 'stock-adjustments',
+            'title' => null,
+        ]);
+    }
+
+    public function test_expense_categories_are_saved_and_available_when_recording_expenses(): void
+    {
+        /** @var User $admin */
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
+
+        $this->get(route('admin.modules.create', 'expense-categories'))
+            ->assertOk()
+            ->assertDontSee('for="title"', false)
+            ->assertSee('Category name');
+
+        $this->post(route('admin.modules.store', 'expense-categories'), [
+            'data' => ['category_name' => 'Utilities'],
+        ])->assertRedirect(route('admin.modules.index', 'expense-categories'));
+
+        $category = AdminRecord::where('module', 'expense-categories')->firstOrFail();
+        $this->assertNull($category->title);
+        $this->assertSame('Utilities', $category->data['category_name']);
+
+        $this->get(route('admin.modules.index', 'expense-categories'))
+            ->assertOk()
+            ->assertDontSee('<th>Created</th>', false);
+
+        $this->get(route('admin.modules.create', 'expenses'))
+            ->assertOk()
+            ->assertSee('name="data[category]"', false)
+            ->assertSee('value="Utilities"', false)
+            ->assertSee('name="data[payment_method]"', false)
+            ->assertSee('value="Mobile Money"', false);
+
+        $this->post(route('admin.modules.store', 'expenses'), [
+            'data' => ['category' => 'Utilities', 'amount' => '45.00', 'payment_method' => 'Mobile Money'],
+        ])->assertRedirect(route('admin.modules.index', 'expenses'));
+
+        $expense = AdminRecord::where('module', 'expenses')->firstOrFail();
+        $this->assertNull($expense->title);
+        $this->assertSame('Utilities', $expense->data['category']);
+        $this->assertSame('Mobile Money', $expense->data['payment_method']);
+
+        foreach (['sales', 'payments'] as $module) {
+            $this->get(route('admin.modules.create', $module))
+                ->assertOk()
+                ->assertSee('name="data[payment_method]"', false)
+                ->assertSee('value="Bank Transfer"', false);
         }
     }
 

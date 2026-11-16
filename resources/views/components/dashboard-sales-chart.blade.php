@@ -35,7 +35,7 @@
         <h2>{{ $title }}</h2>
     </div>
     <div class="sales-chart-scroll">
-        <svg class="sales-chart-svg" viewBox="0 0 {{ $width }} {{ $height }}" role="img" aria-label="{{ $title }} line chart showing sales in KSh">
+        <svg class="sales-chart-svg" viewBox="0 0 {{ $width }} {{ $height }}" role="img" aria-label="{{ $title }} line chart showing sales in Tsh">
             @for ($tick = 0; $tick <= 4; $tick++)
                 @php
                     $tickValue = $axisStep * $tick;
@@ -47,13 +47,13 @@
                 <line x1="{{ $left }}" y1="{{ $tickY }}" x2="{{ $width - $right }}" y2="{{ $tickY }}" class="sales-chart-gridline" />
                 <text x="{{ $left - 12 }}" y="{{ $tickY + 4 }}" text-anchor="end" class="sales-chart-axis-label">{{ $tickLabel }}</text>
             @endfor
-            <text transform="translate(20 {{ $top + ($plotHeight / 2) }}) rotate(-90)" text-anchor="middle" class="sales-chart-axis-title">Total sales (KSh)</text>
+            <text transform="translate(20 {{ $top + ($plotHeight / 2) }}) rotate(-90)" text-anchor="middle" class="sales-chart-axis-title">Total sales (Tsh)</text>
             @if (count($points) > 1)
                 <polyline points="{{ $linePoints }}" class="sales-chart-line" />
             @endif
             @foreach ($points as $index => $point)
                 <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3" class="sales-chart-point">
-                    <title>{{ $point['label'] }}: KSh {{ number_format($point['value'], 2) }}</title>
+                    <title>{{ $point['label'] }}: Tsh {{ number_format($point['value'], 2) }}</title>
                 </circle>
                 @if ($index % $labelInterval === 0 || $index === count($points) - 1)
                     <text @if ($rotateLabels) transform="translate({{ $point['x'] }} {{ $top + $plotHeight + 24 }}) rotate(-35)" text-anchor="end" @else x="{{ $point['x'] }}" y="{{ $top + $plotHeight + 24 }}" text-anchor="middle" @endif class="sales-chart-date-label">{{ $point['label'] }}</text>

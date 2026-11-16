@@ -18,11 +18,63 @@ class AdminRecordController extends Controller
     {
         $definition = $this->module($module);
 
+        if ($module === 'inventory') {
+            $products = AdminRecord::where('module', 'products')->get();
+            $movements = AdminRecord::where('module', 'inventory')->get();
+            $movementTotals = [];
+
+            foreach ($movements as $movement) {
+                $productName = mb_strtolower(trim((string) ($movement->data['product'] ?? '')));
+                if ($productName !== '') {
+                    $movementTotals[$productName] = ($movementTotals[$productName] ?? 0) + $this->stockMovementDelta($movement);
+                }
+            }
+
+            $balances = $products->map(function (AdminRecord $product) use ($movementTotals): array {
+                $opening = (float) ($product->data['stock_quantity'] ?? 0);
+                $change = $movementTotals[mb_strtolower(trim($product->label))] ?? 0;
+
+                return ['product' => $product, 'opening' => $opening, 'change' => $change, 'balance' => $opening + $change];
+            })->sortBy(fn (array $row): string => mb_strtolower($row['product']->label))->values();
+
+            $recentMovements = $movements
+                ->sortByDesc(fn (AdminRecord $movement): string => (string) ($movement->data['movement_date'] ?? $movement->created_at))
+                ->take(10)
+                ->values();
+
+            return view('admin.inventory.index', [
+                'module' => $definition,
+                'products' => $products,
+                'balances' => $balances,
+                'recentMovements' => $recentMovements,
+                'totalStock' => $balances->sum('balance'),
+                'movementCount' => $movements->count(),
+            ]);
+        }
+
         return view('admin.records.index', [
             'module' => $definition,
             'moduleKey' => $module,
             'records' => AdminRecord::where('module', $module)->latest()->paginate(15),
         ]);
+    }
+
+    private function stockMovementDelta(AdminRecord $movement): float
+    {
+        $quantity = (float) ($movement->data['quantity'] ?? 0);
+        $type = mb_strtolower(trim((string) ($movement->data['movement_type'] ?? '')));
+
+        if (str_contains($type, 'adjust')) {
+            return $quantity;
+        }
+
+        foreach (['out', 'sale', 'issue', 'decrease', 'remove'] as $term) {
+            if (str_contains($type, $term)) {
+                return -abs($quantity);
+            }
+        }
+
+        return abs($quantity);
     }
 
     public function create(string $module): View
@@ -58,9 +110,30 @@ class AdminRecordController extends Controller
     public function productImportTemplate(): \Symfony\Component\HttpFoundation\Response
     {
         $columns = ['title', ...array_column($this->module('products')['fields'], 'name')];
+        return $this->importTemplateResponse($columns, 'product-import-template.csv', 'product');
+    }
+
+    public function contactsImportTemplate(): \Symfony\Component\HttpFoundation\Response
+    {
+        return $this->importTemplateResponse(
+            ['title', 'type', 'contact_name', 'email', 'phone', 'address'],
+            'contacts-import-template.csv',
+            'contacts'
+        );
+    }
+
+    public function inventoryImportTemplate(): \Symfony\Component\HttpFoundation\Response
+    {
+        $columns = ['title', ...array_column($this->module('inventory')['fields'], 'name')];
+
+        return $this->importTemplateResponse($columns, 'inventory-import-template.csv', 'inventory');
+    }
+
+    private function importTemplateResponse(array $columns, string $filename, string $module): \Symfony\Component\HttpFoundation\Response
+    {
         $stream = fopen('php://temp', 'r+');
         if ($stream === false) {
-            throw new \RuntimeException('Unable to generate the product import template.');
+            throw new \RuntimeException("Unable to generate the {$module} import template.");
         }
 
         fputcsv($stream, $columns);
@@ -68,12 +141,12 @@ class AdminRecordController extends Controller
         $content = stream_get_contents($stream);
         fclose($stream);
         if ($content === false) {
-            throw new \RuntimeException('Unable to read the generated product import template.');
+            throw new \RuntimeException("Unable to read the generated {$module} import template.");
         }
 
         return response($content)
             ->header('Content-Type', 'text/csv; charset=UTF-8')
-            ->header('Content-Disposition', 'attachment; filename="product-import-template.csv"');
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     public function import(Request $request, string $module): RedirectResponse
@@ -121,7 +194,7 @@ class AdminRecordController extends Controller
                     return back()->withErrors(['file' => "CSV row {$line} has a different number of values than the header."]);
                 }
 
-                $row = array_combine($headers, $values);
+                $row = $this->normalizeOptionValues(array_combine($headers, $values), $definition);
                 $input = [
                     'title' => $row['title'] ?? null,
                     'data' => array_diff_key($row, ['title' => true]),
@@ -145,11 +218,11 @@ class AdminRecordController extends Controller
                 $data = $this->recordData($row, $definition);
                 $record = AdminRecord::create([
                     'module' => $module,
-                    'title' => $row['title'],
+                    'title' => $row['title'] ?? null,
                     'data' => $data,
                     'created_by' => $request->user()->id,
                 ]);
-                $this->audit($request, $module, 'imported', $record->id, "Imported {$record->title}.", ['after' => $record->only(['title', 'data'])]);
+                $this->audit($request, $module, 'imported', $record->id, "Imported {$record->label}.", ['after' => $record->only(['title', 'data'])]);
             }
         });
 
@@ -223,11 +296,11 @@ class AdminRecordController extends Controller
                 $recordData = $this->recordData($row['record'], $definition);
                 $record = AdminRecord::create([
                     'module' => $row['module'],
-                    'title' => $row['record']['title'],
+                    'title' => $row['record']['title'] ?? null,
                     'data' => $recordData,
                     'created_by' => $request->user()->id,
                 ]);
-                $this->audit($request, $row['module'], 'imported', $record->id, "Imported {$record->title}.", ['after' => $record->only(['title', 'data'])]);
+                $this->audit($request, $row['module'], 'imported', $record->id, "Imported {$record->label}.", ['after' => $record->only(['title', 'data'])]);
             }
         });
 
@@ -454,12 +527,12 @@ class AdminRecordController extends Controller
         DB::transaction(function () use ($request, $module, $validated, $data): void {
             $record = AdminRecord::create([
                 'module' => $module,
-                'title' => $validated['title'],
+                'title' => $validated['title'] ?? null,
                 'data' => $data,
                 'created_by' => $request->user()->id,
             ]);
 
-            $this->audit($request, $module, 'created', $record->id, "Created {$record->title}.", ['after' => $record->only(['title', 'data'])]);
+            $this->audit($request, $module, 'created', $record->id, "Created {$record->label}.", ['after' => $record->only(['title', 'data'])]);
         });
 
         return redirect()->route('admin.modules.index', $module)->with('status', 'Record added.');
@@ -486,9 +559,9 @@ class AdminRecordController extends Controller
 
         DB::transaction(function () use ($request, $module, $entry, $validated, $data): void {
             $before = $entry->only(['title', 'data']);
-            $entry->update(['title' => $validated['title'], 'data' => $data]);
+            $entry->update(['title' => $validated['title'] ?? $entry->title, 'data' => $data]);
 
-            $this->audit($request, $module, 'updated', $entry->id, "Updated {$entry->title}.", [
+            $this->audit($request, $module, 'updated', $entry->id, "Updated {$entry->label}.", [
                 'before' => $before,
                 'after' => $entry->only(['title', 'data']),
             ]);
@@ -506,7 +579,7 @@ class AdminRecordController extends Controller
             $snapshot = $entry->only(['title', 'data']);
             $entry->delete();
 
-            $this->audit($request, $module, 'deleted', $record, "Deleted {$snapshot['title']}.", ['before' => $snapshot]);
+            $this->audit($request, $module, 'deleted', $record, "Deleted {$entry->label}.", ['before' => $snapshot]);
         });
 
         return redirect()->route('admin.modules.index', $module)->with('status', 'Record deleted.');
@@ -522,15 +595,18 @@ class AdminRecordController extends Controller
 
     private function rules(array $module, array $existingData = []): array
     {
-        $rules = ['title' => ['required', 'string', 'max:255']];
+        $rules = ['title' => ['nullable', 'string', 'max:255']];
 
         foreach ($module['fields'] as $field) {
             $requiredRule = ($field['required'] ?? false) ? 'required' : 'nullable';
 
             if ($field['type'] === 'select') {
-                $allowed = AdminRecord::where('module', $field['source'])
-                    ->pluck('title')
-                    ->all();
+                $allowed = isset($field['options'])
+                    ? array_keys($field['options'])
+                    : AdminRecord::where('module', $field['source'])
+                        ->get()
+                        ->map(fn (AdminRecord $record): string => $record->label)
+                        ->all();
                 if (filled($existingData[$field['name']] ?? null)) {
                     $allowed[] = $existingData[$field['name']];
                 }
@@ -554,6 +630,25 @@ class AdminRecordController extends Controller
         return $rules;
     }
 
+    private function normalizeOptionValues(array $row, array $module): array
+    {
+        foreach ($module['fields'] as $field) {
+            if (! isset($field['options']) || ! array_key_exists($field['name'], $row)) {
+                continue;
+            }
+
+            $value = trim((string) $row[$field['name']]);
+            foreach (array_keys($field['options']) as $option) {
+                if (strcasecmp($value, (string) $option) === 0) {
+                    $row[$field['name']] = $option;
+                    break;
+                }
+            }
+        }
+
+        return $row;
+    }
+
     private function fieldOptions(array $module, array $existingData = []): array
     {
         $options = [];
@@ -562,16 +657,25 @@ class AdminRecordController extends Controller
                 continue;
             }
 
+            if (isset($field['options'])) {
+                $options[$field['name']] = $field['options'];
+                $existing = $existingData[$field['name']] ?? null;
+                if (filled($existing) && ! array_key_exists($existing, $options[$field['name']])) {
+                    $options[$field['name']][$existing] = $existing;
+                }
+                continue;
+            }
+
             $records = AdminRecord::where('module', $field['source'])->orderBy('title')->get();
             $options[$field['name']] = $records->mapWithKeys(function (AdminRecord $record) use ($field): array {
-                $label = $record->title;
-                if ($field['source'] === 'units' && filled($record->data['abbreviation'] ?? null)) {
+                $label = $record->label;
+                if ($field['source'] === 'units' && filled($record->data['abbreviation'] ?? null) && $label !== $record->data['abbreviation']) {
                     $label .= ' ('.$record->data['abbreviation'].')';
-                } elseif ($field['source'] === 'brands' && filled($record->data['short_name'] ?? null)) {
+                } elseif ($field['source'] === 'brands' && filled($record->data['short_name'] ?? null) && $label !== $record->data['short_name']) {
                     $label .= ' ('.$record->data['short_name'].')';
                 }
 
-                return [$record->title => $label];
+                return [$record->label => $label];
             })->all();
 
             $existing = $existingData[$field['name']] ?? null;

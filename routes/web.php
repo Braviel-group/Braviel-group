@@ -30,6 +30,8 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/modules/products/import-template', [AdminRecordController::class, 'productImportTemplate'])->name('modules.products.import-template');
+        Route::get('/modules/contacts/import-template', [AdminRecordController::class, 'contactsImportTemplate'])->name('modules.contacts.import-template');
+        Route::get('/modules/inventory/import-template', [AdminRecordController::class, 'inventoryImportTemplate'])->name('modules.inventory.import-template');
         Route::get('/modules/{module}/import', [AdminRecordController::class, 'importForm'])->name('modules.import.form');
         Route::post('/modules/{module}/import', [AdminRecordController::class, 'import'])->name('modules.import');
         Route::get('/modules/{module}', [AdminRecordController::class, 'index'])->name('modules.index');

@@ -48,8 +48,8 @@
 
     <section class="summary-grid" aria-label="Business summary">
         <article class="summary-card">
-            <div class="summary-card-top"><span>Total Revenue</span><span class="summary-icon revenue-icon" aria-hidden="true">$</span></div>
-            <strong>{{ $orderCount ? '$'.number_format($revenue, 2) : '—' }}</strong>
+            <div class="summary-card-top"><span>Total Revenue</span><span class="summary-icon revenue-icon" aria-hidden="true">Tsh</span></div>
+            <strong>{{ $orderCount ? 'Tsh'.number_format($revenue, 2) : '—' }}</strong>
             <small>{{ $orderCount ? 'From recorded sales' : 'No sales data yet' }}</small>
         </article>
         <article class="summary-card">
@@ -100,7 +100,7 @@
                 <div class="recent-sales-list">
                     @foreach ($recentSales as $sale)
                         <div class="recent-sale-row">
-                            <span>{{ $sale->title }}</span>
+                            <span>{{ $sale->label }}</span>
                             <strong>{{ isset($sale->data['total_amount']) ? number_format((float) $sale->data['total_amount'], 2) : '—' }}</strong>
                         </div>
                     @endforeach
